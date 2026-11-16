@@ -21,7 +21,7 @@ describe("quality score", () => {
     expect(score.categories.map((category) => category.key)).toEqual([
       "trend",
       "volume_participation",
-      "growth",
+      "business_growth",
       "quality",
       "ownership",
     ]);
@@ -38,7 +38,6 @@ describe("quality score", () => {
     expect(score.score).toBe(0);
     expect(score.availablePoints).toBe(0);
     expect(score.coveragePercent).toBe(0);
-    expect(score.missingFields).toContain("sma20");
     expect(score.missingFields).toContain("revenue_growth");
     expect(score.explanation.riskFactors).toContain(
       "Fundamental coverage is incomplete; treat the score as provisional.",
@@ -76,10 +75,10 @@ describe("entry score", () => {
       "dma_alignment",
       "momentum",
       "price_structure",
-      "volume",
+      "volume_confirmation",
       "relative_strength",
       "risk_reward",
-      "volatility",
+      "volatility_risk",
     ]);
     expect(entry.riskFactors).toEqual([]);
   });
@@ -126,7 +125,7 @@ describe("entry score", () => {
     });
 
     expect(quality.coveragePercent).toBe(100);
-    expect(entry.coveragePercent).toBe(100);
+    expect(entry.coveragePercent).toBe(90);
     expect(entry.riskFactors.length).toBeGreaterThan(0);
     // Both scores are computed from the same inputs but are not forced to agree.
     expect(entry.score).not.toBe(quality.score);

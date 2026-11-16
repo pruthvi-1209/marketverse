@@ -68,7 +68,7 @@ describe("momentum indicators", () => {
 
 describe("range and volatility", () => {
   it("computes true range including gaps", () => {
-    expect(trueRange({ date: "2026-01-01", open: 100, high: 106, low: 99, close: 105, volume: 1 }, 100)).toBe(6);
+    expect(trueRange({ date: "2026-01-01", open: 100, high: 106, low: 99, close: 105, volume: 1 }, 100)).toBe(7);
     expect(trueRange({ date: "2026-01-01", open: 100, high: 112, low: 111, close: 111, volume: 1 }, 100)).toBe(12);
   });
 
