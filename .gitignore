@@ -15,3 +15,16 @@ node_modules
 
 #!.yarn/cache
 .pnp.*
+
+# --- MarketVerse -----------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+dist/
+coverage/
+*.log
+.DS_Store
+.vitest/
+.tmp/
+data/nse-raw/

@@ -1,0 +1,49 @@
+name: marketverse
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: marketverse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: marketverse
+      # Deterministic collation for reproducible ordering in tests.
+      LANG: C.UTF-8
+    ports:
+      - "5432:5432"
+    volumes:
+      # Named volume: never delete this if it holds user data.
+      - marketverse-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d marketverse"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Optional: run the API in Docker as well.
+  # The default local workflow is `yarn dev` against either this database or a
+  # Homebrew PostgreSQL 16 instance.
+  api:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/marketverse
+      DATABASE_SSL: "false"
+      CORS_ORIGINS: http://localhost:5173
+      NSE_MCP_ENABLED: "true"
+      MARKET_TIMEZONE: Asia/Kolkata
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  marketverse-pgdata:

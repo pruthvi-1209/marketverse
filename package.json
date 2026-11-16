@@ -1,4 +1,30 @@
 {
   "name": "marketverse",
-  "packageManager": "yarn@4.18.1"
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "yarn@4.9.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "yarn workspace @marketverse/api dev",
+    "build": "yarn workspace @marketverse/contracts build && yarn workspace @marketverse/api build",
+    "start": "yarn workspace @marketverse/api start",
+    "test": "yarn workspace @marketverse/api test",
+    "test:unit": "yarn workspace @marketverse/api test:unit",
+    "test:integration": "yarn workspace @marketverse/api test:integration",
+    "test:live": "yarn workspace @marketverse/api test:live",
+    "typecheck": "yarn workspace @marketverse/api typecheck",
+    "lint": "yarn workspace @marketverse/api lint",
+    "db:generate": "yarn workspace @marketverse/api db:generate",
+    "db:migrate": "yarn workspace @marketverse/api db:migrate",
+    "db:seed": "yarn workspace @marketverse/api db:seed",
+    "db:studio": "yarn workspace @marketverse/api db:studio",
+    "nse:inspect": "yarn workspace @marketverse/api nse:inspect",
+    "nse:test": "yarn workspace @marketverse/api nse:test"
+  }
 }
