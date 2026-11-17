@@ -9,16 +9,18 @@ import type {
 } from "@marketverse/contracts";
 import { ConflictError, NotFoundError } from "../../core/errors/app-error";
 import { storedResponseMeta } from "../../core/http/response-meta";
+import { logger } from "../../core/logger/logger";
 import { toNumber } from "../../core/utils/numbers";
+import { env } from "../../config/env";
 import { getMarketDataProvider } from "../../providers";
 import { marketRepository } from "../../database/repositories/market.repository";
-import { scoringRepository, mapEntryRow, mapQualityRow } from "../../database/repositories/scoring.repository";
 import { stocksRepository } from "../../database/repositories/stocks.repository";
 import {
   watchlistRepository,
   type WatchlistWithCount,
 } from "../../database/repositories/watchlist.repository";
 import { marketDataService } from "../../services/market-data.service";
+import { scoringService } from "../../services/scoring.service";
 import type { ResponseMeta } from "@marketverse/contracts";
 
 function mapWatchlist(row: WatchlistWithCount, items?: WatchlistItem[]): Watchlist {
@@ -50,13 +52,56 @@ export class WatchlistService {
     if (!row) throw new NotFoundError("Watchlist", id);
 
     const rawItems = await watchlistRepository.items(id);
-    const quotes = await marketRepository.latestQuotesForSymbols(rawItems.map((item) => item.symbol));
+    const symbols = rawItems.map((item) => item.symbol);
+    let quotes = await marketRepository.latestQuotesForSymbols(symbols);
+
+    // Serve live prices: the stored snapshot is written by the 5-minute background
+    // job from end-of-day bulk data, so refresh stale symbols through the live quote
+    // endpoint instead of leaving watchlist prices frozen at yesterday's close.
+    const freshWindowMs = env.CACHE_TTL_QUOTE_SECONDS * 1000;
+    const staleSymbols = symbols.filter((symbol) => {
+      const row = quotes.get(symbol);
+      return !row || Date.now() - row.retrievedAt.getTime() > freshWindowMs;
+    });
+    if (staleSymbols.length > 0) {
+      const results = await Promise.allSettled(
+        staleSymbols.map((symbol) => marketDataService.getQuote(symbol, { refresh: true })),
+      );
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          logger.warn(
+            { err: result.reason, symbol: staleSymbols[index] },
+            "Live watchlist quote refresh failed; serving stored quote",
+          );
+        }
+      });
+      quotes = await marketRepository.latestQuotesForSymbols(symbols);
+    }
+
+    // Recalculate quality and entry scores from the freshest indicators and the
+    // live quote we just refreshed, so scores track the market instead of waiting
+    // for the nightly scoring job (JOB_SCORES_CRON runs after close).
+    const scoreResults = await Promise.allSettled(
+      rawItems.map((item) => scoringService.combined(item.symbol, { recalculate: true })),
+    );
+    const scoresBySymbol = new Map<string, { quality: QualityScore | null; entry: EntryScore | null }>();
+    scoreResults.forEach((result, index) => {
+      const symbol = rawItems[index]?.symbol;
+      if (!symbol) return;
+      if (result.status === "fulfilled") {
+        scoresBySymbol.set(symbol, { quality: result.value.quality, entry: result.value.entry });
+      } else {
+        logger.warn(
+          { err: result.reason, symbol },
+          "Score recalculation failed; scores omitted for this refresh",
+        );
+      }
+    });
 
     const items: WatchlistItem[] = [];
     for (const item of rawItems) {
       const quoteRow = quotes.get(item.symbol);
-      const qualityRow = await scoringRepository.latestQuality(item.stockId);
-      const entryRow = await scoringRepository.latestEntry(item.stockId);
+      const scores = scoresBySymbol.get(item.symbol);
       items.push({
         id: item.id,
         symbol: item.symbol,
@@ -70,8 +115,8 @@ export class WatchlistService {
               observedAt: quoteRow.observedAt.toISOString(),
             }
           : null,
-        qualityScore: qualityRow ? mapQualityRow(qualityRow) : null,
-        entryScore: entryRow ? mapEntryRow(entryRow) : null,
+        qualityScore: scores?.quality ?? null,
+        entryScore: scores?.entry ?? null,
       });
     }
 
@@ -196,13 +241,10 @@ export class WatchlistService {
     if (!watchlist) throw new NotFoundError("Watchlist", id);
     const item = await watchlistRepository.findItem(id, symbol.toUpperCase());
     if (!item) throw new NotFoundError("Watchlist item", symbol);
-    const [qualityRow, entryRow] = await Promise.all([
-      scoringRepository.latestQuality(item.stockId),
-      scoringRepository.latestEntry(item.stockId),
-    ]);
+    const combined = await scoringService.combined(item.symbol, { recalculate: true });
     return {
-      quality: qualityRow ? mapQualityRow(qualityRow) : null,
-      entry: entryRow ? mapEntryRow(entryRow) : null,
+      quality: combined.quality,
+      entry: combined.entry,
       meta: storedResponseMeta({ provider: "marketverse" }),
     };
   }

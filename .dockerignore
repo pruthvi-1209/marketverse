@@ -1,0 +1,16 @@
+.git
+.gitignore
+.github
+node_modules
+**/node_modules
+**/dist
+coverage
+.tmp
+data/nse-raw
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.vitest
+.yarn/install-state.gz

@@ -109,6 +109,8 @@ describe("entry score", () => {
       distanceFromSma20Percent: 18,
       distanceFromSma50Percent: 30,
       relativeVolume: 3,
+      weekHigh52: 170,
+      distanceFrom52WeekHighPercent: -5,
     });
 
     const quality = computeQualityScore({
@@ -125,7 +127,7 @@ describe("entry score", () => {
     });
 
     expect(quality.coveragePercent).toBe(100);
-    expect(entry.coveragePercent).toBe(90);
+    expect(entry.coveragePercent).toBe(100);
     expect(entry.riskFactors.length).toBeGreaterThan(0);
     // Both scores are computed from the same inputs but are not forced to agree.
     expect(entry.score).not.toBe(quality.score);

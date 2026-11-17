@@ -254,7 +254,7 @@ export class MarketService {
   async overview(): Promise<{ overview: MarketOverview; meta: ResponseMeta }> {
     const warnings: string[] = [];
     const [indicesResult, breadthResult, moversResult] = await Promise.allSettled([
-      this.indices({ group: "broad" }),
+      this.indices({ group: "all" }),
       this.breadth(),
       this.movers(10),
     ]);
@@ -308,6 +308,11 @@ export class MarketService {
       overview: { indices, breadth, movers, tradingDate },
       meta: storedResponseMeta({
         provider: this.provider.name,
+        observedAt:
+          indicesResult.status === "fulfilled" &&
+          indicesResult.value.indices[0]?.observedAt != null
+            ? new Date(indicesResult.value.indices[0].observedAt)
+            : null,
         tradingDate,
         delayClassification: "delayed_1_3_min",
         warnings,

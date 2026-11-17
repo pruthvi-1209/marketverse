@@ -12,7 +12,8 @@ services:
       # Deterministic collation for reproducible ordering in tests.
       LANG: C.UTF-8
     ports:
-      - "5432:5432"
+      # Override with POSTGRES_PORT=5433 if 5432 is already in use locally.
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       # Named volume: never delete this if it holds user data.
       - marketverse-pgdata:/var/lib/postgresql/data
@@ -41,6 +42,9 @@ services:
       MARKET_TIMEZONE: Asia/Kolkata
     ports:
       - "4000:4000"
+    # Apply pending migrations (idempotent) before serving.
+    command:
+      ["sh", "-c", "node apps/api/dist/database/migrate.js && node apps/api/dist/server.js"]
     depends_on:
       postgres:
         condition: service_healthy
